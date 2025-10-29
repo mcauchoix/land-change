@@ -1,10 +1,10 @@
-# ================================================================
 
-# --- 0) Packages ------------------------------------------------
-required <- c("sf","dplyr","httr","jsonlite","purrr","stringr","readr","units")
-to_install <- required[!(required %in% installed.packages()[,1])]
-if(length(to_install)) install.packages(to_install)
+# 0.Packages
+#----------
+install.packages("terra")      # ou install.packages("raster")
+library(terra)
+# library(raster)
 
-library(sf); library(dplyr); library(httr); library(jsonlite)
-library(purrr); library(stringr); library(readr); library(units);
-
+# 1.Load data
+#----------
+## 1.1 Land abandonement from Zheng et al. 2023 (https://doi.org/10.5281/zenodo.8010675)

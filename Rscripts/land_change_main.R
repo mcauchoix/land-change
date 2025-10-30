@@ -2,13 +2,14 @@ setwd("~/Documents/land change/data/Zheng 2023/")
 # 0.Packages
 #----------
 #install.packages("terra")      # ou install.packages("raster")
-install.packages("viridis")  # palette de couleurs lisible
-install.packages("rnaturalearth")
-install.packages("rnaturalearthdata")
-install.packages("sf") 
-install.packages("raster")
-install.packages("geodata")
-
+# install.packages("viridis")  # palette de couleurs lisible
+# install.packages("rnaturalearth")
+# install.packages("rnaturalearthdata")
+# install.packages("sf") 
+# install.packages("raster")
+# install.packages("geodata")
+# install.packages("leaflet")
+# install.packages("mapview")
 
 library(terra)
 library(viridis)
@@ -17,7 +18,9 @@ library(rnaturalearthdata)
 library(sf)
 library(raster)
 library(geodata)
-
+library(ggplot2)
+library(leaflet)
+library(mapview)
 
 # 1.Load data
 #----------
@@ -30,8 +33,27 @@ print(zheng)
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
 ## 2.3 Carte des Friches
-friche <- st_read("~/Documents/land change/data/friche/friches-surfaces-2025-10-20.gpkg")
+st_layers("~/Documents/land change/data/friche/friches-surfaces-2025-10-20.gpkg")
 
+# Lire la couche
+friches <- st_read(
+  "~/Documents/land change/data/friche/friches-surfaces-2025-10-20.gpkg",
+  layer = "friches_surfaces"
+)
+# corrige les problèmes de géométrie invalides pour garder que l'ariege
+# Vérifie la validité
+valid_index <- st_is_valid(friches)
+# Garde uniquement les géométries valides
+friches_valid <- friches[valid_index, ]
+# Vérifie le résultat
+sum(!st_is_valid(friches_valid)) 
+friches_ariege <- st_intersection(friches_valid, ariege)
+
+## 2.4 RPG 2015-2023 https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/VMYCYM
+st_layers("~/Documents/land change/data/RPG/d09.gpkg")
+# Lire la couche
+rpg_change <- st_read("~/Documents/land change/data/RPG/d09.gpkg")
+mapview(rpg_change, col.regions = "forestgreen", alpha.regions = 0.2) 
 
 # 2. Plot Ariege
 #---------------
@@ -39,11 +61,17 @@ fra_adm2 <- geodata::gadm(country="FRA", level=2, path=".")
 departements <- st_as_sf(fra_adm2)
 ariege <- departements[departements$NAME_2 == "Ariège", ]
 
+# mets les bonne coordonées
+friches_ariege <- st_transform(friches_ariege, 4326)
+ariege <- st_transform(ariege, 4326)
+
 # Conversion sf → vecteur terra
 ariege_vect <- vect(ariege)
 # Découpage spatial
 zheng_ariege <- mask(crop(zheng, ariege_vect), ariege_vect)
 #plot
+
+
 
 # Nom du fichier
 outfile <- "~/Documents/land change/outputs/abandoned_cropland_ariege_Zheng2023.png"
@@ -55,6 +83,7 @@ png(filename = outfile, width = 2000, height = 2000, res = 300)
 coords <- xyFromCell(zheng_ariege, which(values(zheng_ariege)==1))
 # Plot fond carte
 plot(st_geometry(ariege), col="lightgray", border="gray", main="Abandoned Cropland - Ariège")
+plot(st_geometry(friches_ariege), add = TRUE, col = "forestgreen", border = "darkgreen")
 
 # Ajouter les pixels rouges
 points(coords, col="red", pch=15, cex=0.5)
@@ -70,6 +99,45 @@ legend("topright", legend=c("Abandonné"), fill="red", border="black")
 
 # Fermer le périphérique graphique
 dev.off()
+
+
+#2.2 Carte interactive d'ariege
+#-------------------
+# Si coords est une matrice ou data.frame
+pixels <- data.frame(coords)
+colnames(pixels) <- c("x", "y")
+
+# --- Carte interactive ---
+leaflet() %>%
+  addProviderTiles("CartoDB.Positron") %>%  # Fond clair et propre
+  addPolygons(
+    data = ariege,
+    color = "gray",
+    weight = 2,
+    fillColor = "lightgray",
+    fillOpacity = 0.3,
+    group = "Ariège"
+  ) %>%
+  addPolygons(
+    data = friches_ariege,
+    color = "darkgreen",
+    fillColor = "forestgreen",
+    fillOpacity = 0.5,
+    weight = 1,
+    group = "Friches"
+  ) %>%
+  addCircleMarkers(
+    data = pixels,
+    lng = ~x, lat = ~y,
+    color = "red",
+    fillOpacity = 0.5,
+    radius = 2,
+    group = "Pixels rouges"
+  ) %>%
+  addLayersControl(
+    overlayGroups = c("Ariège", "Friches", "Pixels rouges"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
 
 #3. France
 #---------
@@ -115,8 +183,25 @@ png(filename = outfile, width = 2000, height = 2000, res = 300)
 plot(zheng)
 dev.off()
 
+#5-Travaill sur le RPG change en ariege
 
+# Supprimer la géométrie
+rpg <- st_drop_geometry(rpg_change)
+# Afficher les premières lignes
+head(rpg)
+# dominant culutre in 2023
+sort(table(rpg$cult2023),decreasing = T)
+sort(table(rpg$cult2015),decreasing = T)
+# non déclaré depuis 5 ans
+sum(is.na(rpg$cult2023)&is.na(rpg$cult2022)&is.na(rpg$cult2021)&is.na(rpg$cult2020)
+      &is.na(rpg$cult2019))
 
+ind=rowSums(is.na(rpg[,4:8]))==5
+# code de toute les parcelles non déclarée depuis 5 ans
+ab=rpg$id_unique[ind]
+
+rpg_ab=rpg_change[rpg$id_unique %in% ab,]
+mapview(rpg_ab, col.regions = "red", alpha.regions = 0.2) 
 
 
 # XX_Fonction

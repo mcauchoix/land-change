@@ -9,7 +9,7 @@
 # install.packages("geodata")
 # install.packages("leaflet")
 # install.packages("mapview")
-install.packages("pbapply")
+#install.packages("pbapply")
 
 
 library(terra)
@@ -138,6 +138,7 @@ mapview(deprise_moulis, zcol = "nb_annees_non_decl",layer.name = "Ann√©es non d√
 # export pour smartphone
 rpg_non_decl_3plus_wgs <- st_transform(rpg_non_decl_3plus, 4326)
 st_write(rpg_non_decl_3plus_wgs, "~/Documents/land change/outputs/rpg_non_decl_3plus_wgs.gpkg", delete_dsn = TRUE)
+
 st_write(rpg_non_decl_3plus_wgs, "~/Documents/land change/outputs/rpg_non_decl_3plus_wgs.geojson",driver = "GeoJSON", delete_dsn = TRUE)
 
 # Lire rapidement
